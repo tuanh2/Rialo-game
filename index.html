@@ -68,7 +68,7 @@
       paused = false;
       startTime = null;
       pausedTime = 0;
-      controlBtn.textContent = "Bắt đầu";
+      controlBtn.textContent = "Start";
       placeFood();
     }
 
@@ -89,7 +89,7 @@
       const head = {x: (snake[0].x + dx + COLS) % COLS, y: (snake[0].y + dy + ROWS) % ROWS};
       if (snake.some(seg => seg.x === head.x && seg.y === head.y)) {
         gameOver = true;
-        controlBtn.textContent = "Bắt đầu";
+        controlBtn.textContent = "Start";
         return;
       }
 
@@ -146,7 +146,7 @@
         const seconds = String(elapsed % 60).padStart(2, "0");
         drawTextWithOutline("Time: " + minutes + ":" + seconds, 10, 50, "#ffb703");
       } else {
-        drawTextWithOutline("Nhấn 'Bắt đầu' để chơi", 10, 50, "#ffb703");
+        drawTextWithOutline("Click 'Start' to play", 10, 50, "#ffb703");
       }
 
       if (gameOver) {
@@ -159,7 +159,7 @@
         ctx.font = "20px Arial";
         ctx.fillStyle = "#fff";
         ctx.fillText("Final Score: " + score, canvas.width / 2, canvas.height / 2);
-        ctx.fillText("Nhấn nút 'Bắt đầu' để chơi lại", canvas.width / 2, canvas.height / 2 + 40);
+        ctx.fillText("Click 'Start' to continue", canvas.width / 2, canvas.height / 2 + 40);
       }
     }
 
@@ -176,21 +176,25 @@
     });
 
     controlBtn.addEventListener("click", () => {
-      if (!started) {
-        started = true;
-        paused = false;
-        startTime = Date.now();
-        controlBtn.textContent = "Tạm dừng";
-      } else if (paused) {
-        paused = false;
-        startTime += Date.now() - pausedTime;
-        controlBtn.textContent = "Tạm dừng";
-      } else {
-        paused = true;
-        pausedTime = Date.now();
-        controlBtn.textContent = "Bắt đầu";
-      }
-    });
+  if (gameOver) {
+    init();
+    return;
+  }
+  if (!started) {
+    started = true;
+    paused = false;
+    startTime = Date.now();
+    controlBtn.textContent = "Pause";
+  } else if (paused) {
+    paused = false;
+    startTime += Date.now() - pausedTime;
+    controlBtn.textContent = "Pause";
+  } else {
+    paused = true;
+    pausedTime = Date.now();
+    controlBtn.textContent = "Start";
+  }
+});
 
     init();
     setInterval(loop, 100);
