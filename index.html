@@ -44,7 +44,7 @@
     const ctx = canvas.getContext("2d");
     const controlBtn = document.getElementById("controlBtn");
 
-    // ảnh nền từ GitHub raw
+    // ảnh nền từ GitHub (dùng link raw)
     const bg = new Image();
     bg.src = "https://raw.githubusercontent.com/tuanh2/Rialo-game/main/background.png";
 
@@ -133,15 +133,23 @@
       ctx.fillText(text, x, y);
     }
 
+    // vẽ nền kiểu cover
+    function drawBackground() {
+      const scale = Math.max(canvas.width / bg.width, canvas.height / bg.height);
+      const x = (canvas.width / 2) - (bg.width / 2) * scale;
+      const y = (canvas.height / 2) - (bg.height / 2) * scale;
+      ctx.drawImage(bg, x, y, bg.width * scale, bg.height * scale);
+    }
+
     function draw() {
       if (bg.complete) {
-        ctx.drawImage(bg, 0, 0, canvas.width, canvas.height);
+        drawBackground();
       } else {
         ctx.fillStyle = "#f0f0f0";
         ctx.fillRect(0, 0, canvas.width, canvas.height);
       }
 
-      // vẽ food
+      // food
       ctx.fillStyle = "#DE3449";
       ctx.beginPath();
       ctx.arc(
@@ -153,7 +161,7 @@
       );
       ctx.fill();
 
-      // vẽ snake
+      // snake
       snake.forEach((seg, i) => {
         const px = seg.x * CELL_SIZE;
         const py = seg.y * CELL_SIZE;
