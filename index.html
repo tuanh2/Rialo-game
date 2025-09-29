@@ -6,7 +6,6 @@
   <style>
     body {
       margin: 0;
-      overflow: hidden;
       background: #111;
       display: flex;
       justify-content: center;
@@ -19,6 +18,9 @@
       border-radius: 8px;
       image-rendering: pixelated;
       display: block;
+      /* thu nhỏ còn 2/7 màn hình */
+      width: calc(100vw * 2 / 7);
+      height: calc(100vh * 2 / 7);
     }
     #controlBtn {
       margin-top: 15px;
@@ -46,8 +48,8 @@
     const controlBtn = document.getElementById("controlBtn");
 
     function resizeCanvas() {
-      canvas.width = window.innerWidth;
-      canvas.height = window.innerHeight - 80; // chừa chỗ cho nút
+      canvas.width = Math.floor(window.innerWidth * 2 / 7);
+      canvas.height = Math.floor(window.innerHeight * 2 / 7);
     }
     window.addEventListener("resize", resizeCanvas);
     resizeCanvas();
@@ -119,7 +121,7 @@
     }
 
     function drawTextWithOutline(text, x, y, color) {
-      ctx.font = "20px Arial";
+      ctx.font = "16px Arial";
       ctx.textAlign = "left";
       ctx.lineWidth = 3;
       ctx.strokeStyle = "#000";
@@ -148,7 +150,7 @@
         ctx.fillRect(px + 2, py + 2, CELL_SIZE - 4, CELL_SIZE - 4);
       });
 
-      drawTextWithOutline("Score: " + score, 10, 25, "#e63946");
+      drawTextWithOutline("Score: " + score, 10, 20, "#e63946");
 
       if (started) {
         let elapsed;
@@ -159,22 +161,22 @@
         }
         const minutes = String(Math.floor(elapsed / 60)).padStart(2, "0");
         const seconds = String(elapsed % 60).padStart(2, "0");
-        drawTextWithOutline("Time: " + minutes + ":" + seconds, 10, 50, "#ffb703");
+        drawTextWithOutline("Time: " + minutes + ":" + seconds, 10, 40, "#ffb703");
       } else {
-        drawTextWithOutline("Click 'Start' to play", 10, 50, "#ffb703");
+        drawTextWithOutline("Click 'Start' to play", 10, 40, "#ffb703");
       }
 
       if (gameOver) {
         ctx.fillStyle = "rgba(0,0,0,0.6)";
         ctx.fillRect(0, 0, canvas.width, canvas.height);
         ctx.fillStyle = "#e63946";
-        ctx.font = "40px Arial";
+        ctx.font = "24px Arial";
         ctx.textAlign = "center";
-        ctx.fillText("GAME OVER", canvas.width / 2, canvas.height / 2 - 40);
-        ctx.font = "20px Arial";
+        ctx.fillText("GAME OVER", canvas.width / 2, canvas.height / 2 - 30);
+        ctx.font = "16px Arial";
         ctx.fillStyle = "#fff";
         ctx.fillText("Final Score: " + score, canvas.width / 2, canvas.height / 2);
-        ctx.fillText("Click 'Start' to continue", canvas.width / 2, canvas.height / 2 + 40);
+        ctx.fillText("Click 'Start' to continue", canvas.width / 2, canvas.height / 2 + 30);
       }
     }
 
