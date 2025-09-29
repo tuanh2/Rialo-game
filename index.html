@@ -1,203 +1,87 @@
 <!DOCTYPE html>
-<html lang="vi">
+<html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Snake Game</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Snake — Shared Leaderboard</title>
   <style>
-    body {
-      margin: 0;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      align-items: center;
-      height: 100vh;
-      background: #111;
-    }
-    canvas {
-      border: 2px solid #333;
-      border-radius: 8px;
-      image-rendering: pixelated;
-    }
-    #controlBtn {
-      margin-top: 15px;
-      padding: 10px 20px;
-      font-size: 18px;
-      font-weight: bold;
-      background: #26a65b;
-      color: white;
-      border: none;
-      border-radius: 6px;
-      cursor: pointer;
-    }
-    #controlBtn:hover {
-      background: #1b7f45;
-    }
+    :root { --bg:#0f1115; --panel:#151922; --accent:#26a65b; --accent-dark:#1b7f45; --text:#e5e7eb; --muted:#9aa4b2; --danger:#de3449; --warning:#ffb703; }
+    *{box-sizing:border-box} html,body{height:100%} body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;display:flex;min-height:100vh}
+    .wrap{display:grid;grid-template-columns:1fr 320px;gap:16px;width:100%;height:100vh;padding:16px}
+    .stage{background:#111318;border:2px solid #222836;border-radius:12px;display:flex;align-items:center;justify-content:center;overflow:hidden;position:relative}
+    canvas{border-radius:10px;image-rendering:pixelated;background:#0e0f12;max-width:100%;max-height:100%;display:block}
+    .sidebar{background:var(--panel);border:1px solid #202637;border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:14px}
+    .title{font-weight:700;font-size:20px;letter-spacing:.2px}
+    .row{display:flex;align-items:center;gap:10px}
+    input[type="text"]{width:100%;background:#0f1420;color:var(--text);border:1px solid #2a3448;border-radius:8px;padding:10px 12px;outline:none}
+    button{padding:10px 14px;font-weight:700;border:0;border-radius:8px;cursor:pointer;color:#fff;background:var(--accent)}
+    button:hover{background:var(--accent-dark)}
+    button.secondary{background:#2b3345}
+    button.secondary:hover{background:#222a3c}
+    .stats{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+    .stat{background:#0f1420;border:1px solid #253049;border-radius:10px;padding:10px;text-align:center}
+    .stat .label{color:var(--muted);font-size:12px}
+    .stat .value{font-size:18px;font-weight:800;margin-top:4px}
+    .leaderboard{background:#0f1420;border:1px solid #253049;border-radius:10px;padding:10px;max-height:45vh;overflow:auto}
+    .board-row{display:grid;grid-template-columns:1.5fr .8fr .7fr;gap:8px;padding:8px 6px;border-bottom:1px dashed #22304a;align-items:baseline;font-size:14px}
+    .board-row.header{position:sticky;top:0;background:#121726;border-bottom:1px solid #32425e;font-weight:700}
+    @media (max-width:900px){.wrap{grid-template-columns:1fr}.leaderboard{max-height:unset}}
   </style>
 </head>
 <body>
-  <canvas id="game" width="800" height="400"></canvas>
-  <button id="controlBtn">Bắt đầu</button>
-
+  <div class="wrap">
+    <div class="stage"><canvas id="game"></canvas></div>
+    <aside class="sidebar">
+      <div class="title">Snake — Shared Leaderboard</div>
+      <label for="playerName">Player name</label>
+      <input id="playerName" type="text" placeholder="Enter your name" maxlength="20" />
+      <div class="row"><button id="controlBtn">Start</button><button id="restartBtn" class="secondary">Restart</button></div>
+      <div class="stats">
+        <div class="stat"><div class="label">Score</div><div id="scoreEl" class="value">0</div></div>
+        <div class="stat"><div class="label">Time</div><div id="timeEl" class="value">00:00</div></div>
+      </div>
+      <div class="leaderboard" id="leaderboard">
+        <div class="board-row header"><div>Name</div><div>Score</div><div>Time</div></div>
+      </div>
+    </aside>
+  </div>
   <script>
+    const API_BASE = "http://localhost:3000";
     const canvas = document.getElementById("game");
     const ctx = canvas.getContext("2d");
     const controlBtn = document.getElementById("controlBtn");
-
+    const restartBtn = document.getElementById("restartBtn");
+    const scoreEl = document.getElementById("scoreEl");
+    const timeEl = document.getElementById("timeEl");
+    const nameInput = document.getElementById("playerName");
+    const leaderboardEl = document.getElementById("leaderboard");
     const CELL_SIZE = 20;
-    const COLS = canvas.width / CELL_SIZE;
-    const ROWS = canvas.height / CELL_SIZE;
-
+    let COLS, ROWS;
+    const bg = new Image();
+    bg.src = "background.png";
     let snake, food, dx, dy, score, gameOver;
     let started, paused;
     let startTime, pausedTime;
 
-    const bg = new Image();
-    bg.src = "background.png";
+    function formatTime(sec){const m=String(Math.floor(sec/60)).padStart(2,"0");const s=String(Math.floor(sec%60)).padStart(2,"0");return `${m}:${s}`}
 
-    function init() {
-      snake = [
-        {x: 5, y: 10},
-        {x: 4, y: 10},
-        {x: 3, y: 10}
-      ];
-      dx = 1;
-      dy = 0;
-      score = 0;
-      gameOver = false;
-      started = false;
-      paused = false;
-      startTime = null;
-      pausedTime = 0;
-      controlBtn.textContent = "Start";
-      placeFood();
-    }
+    async function fetchBoard(){try{const r=await fetch(`${API_BASE}/leaderboard`);return await r.json()}catch(e){return[]}}
+    async function postScore(name,score,time){try{const r=await fetch(`${API_BASE}/leaderboard`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({name,score,time})});return await r.json()}catch(e){return[]}}
+    async function renderBoard(){leaderboardEl.querySelectorAll('.board-row:not(.header)').forEach(n=>n.remove());const board=await fetchBoard();board.forEach(item=>{const row=document.createElement('div');row.className='board-row';const n=document.createElement('div');const s=document.createElement('div');const t=document.createElement('div');n.textContent=item.name;s.textContent=item.score;t.textContent=formatTime(item.time);row.appendChild(n);row.appendChild(s);row.appendChild(t);leaderboardEl.appendChild(row)})}
 
-    function placeFood() {
-      let valid = false;
-      while (!valid) {
-        food = {
-          x: Math.floor(Math.random() * COLS),
-          y: Math.floor(Math.random() * ROWS)
-        };
-        valid = !snake.some(seg => seg.x === food.x && seg.y === food.y);
-      }
-    }
+    function resizeCanvas(){const stage=document.querySelector('.stage');const rect=stage.getBoundingClientRect();canvas.width=Math.floor(rect.width-16);canvas.height=Math.floor(rect.height-16);COLS=Math.floor(canvas.width/CELL_SIZE);ROWS=Math.floor(canvas.height/CELL_SIZE)}
+    function placeFood(){let valid=false;while(!valid){food={x:Math.floor(Math.random()*COLS),y:Math.floor(Math.random()*ROWS)};valid=!snake.some(seg=>seg.x===food.x&&seg.y===food.y)}}
+    function initGame(){resizeCanvas();snake=[{x:5,y:10},{x:4,y:10},{x:3,y:10}];dx=1;dy=0;score=0;scoreEl.textContent='0';gameOver=false;started=false;paused=false;startTime=null;pausedTime=0;controlBtn.textContent='Start';placeFood();draw()}
+    function update(){if(!started||paused||gameOver)return;const head={x:(snake[0].x+dx+COLS)%COLS,y:(snake[0].y+dy+ROWS)%ROWS};if(snake.some(seg=>seg.x===head.x&&seg.y===head.y)){gameOver=true;controlBtn.textContent='Start';const elapsed=Math.floor((Date.now()-startTime)/1000);const playerName=nameInput.value.trim();if(playerName)postScore(playerName,score,elapsed).then(renderBoard);return}snake.unshift(head);if(head.x===food.x&&head.y===food.y){score++;scoreEl.textContent=String(score);placeFood()}else{snake.pop()}}
+    function drawTextWithOutline(text,x,y,color,align='left',size=18){ctx.font=`${size}px Arial`;ctx.textAlign=align;ctx.lineWidth=3;ctx.strokeStyle='#000';ctx.strokeText(text,x,y);ctx.fillStyle=color;ctx.fillText(text,x,y)}
+    function draw(){if(bg.complete&&bg.naturalWidth>0){ctx.drawImage(bg,0,0,canvas.width,canvas.height)}else{ctx.fillStyle='#0e1016';ctx.fillRect(0,0,canvas.width,canvas.height)}ctx.fillStyle='#DE3449';ctx.beginPath();ctx.arc(food.x*CELL_SIZE+CELL_SIZE/2,food.y*CELL_SIZE+CELL_SIZE/2,CELL_SIZE/2-2,0,Math.PI*2);ctx.fill();snake.forEach((seg,i)=>{const px=seg.x*CELL_SIZE;const py=seg.y*CELL_SIZE;ctx.fillStyle=i===0?'#1B7F45':'#26A65B';ctx.fillRect(px+2,py+2,CELL_SIZE-4,CELL_SIZE-4)});drawTextWithOutline(`Score: ${score}`,10,24,'#e63946','left',18);if(started){const now=paused?pausedTime:Date.now();const elapsed=Math.floor((now-startTime)/1000);timeEl.textContent=formatTime(elapsed);drawTextWithOutline(`Time: ${formatTime(elapsed)}`,10,46,'#ffb703','left',18)}else{drawTextWithOutline(\"Click 'Start' to play\",10,46,'#ffb703','left',18)}if(gameOver){ctx.fillStyle='rgba(0,0,0,0.6)';ctx.fillRect(0,0,canvas.width,canvas.height);ctx.fillStyle='#e63946';ctx.font='40px Arial';ctx.textAlign='center';ctx.fillText('GAME OVER',canvas.width/2,canvas.height/2-40);ctx.font='20px Arial';ctx.fillStyle='#fff';ctx.fillText(`Final Score: ${score}`,canvas.width/2,canvas.height/2);ctx.fillText(\"Click 'Start' for a new game\",canvas.width/2,canvas.height/2+40)}}
+    function loop(){update();draw()}
 
-    function update() {
-      if (!started || paused || gameOver) return;
-
-      const head = {x: (snake[0].x + dx + COLS) % COLS, y: (snake[0].y + dy + ROWS) % ROWS};
-      if (snake.some(seg => seg.x === head.x && seg.y === head.y)) {
-        gameOver = true;
-        controlBtn.textContent = "Start";
-        return;
-      }
-
-      snake.unshift(head);
-
-      if (head.x === food.x && head.y === food.y) {
-        score++;
-        placeFood();
-      } else {
-        snake.pop();
-      }
-    }
-
-    function drawTextWithOutline(text, x, y, color) {
-      ctx.font = "20px Arial";
-      ctx.textAlign = "left";
-      ctx.lineWidth = 3;
-      ctx.strokeStyle = "#000";
-      ctx.strokeText(text, x, y);
-      ctx.fillStyle = color;
-      ctx.fillText(text, x, y);
-    }
-
-    function draw() {
-      if (bg.complete) {
-        ctx.drawImage(bg, 0, 0, canvas.width, canvas.height);
-      } else {
-        ctx.fillStyle = "#f0f0f0";
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-      }
-
-      ctx.fillStyle = "#DE3449";
-      ctx.beginPath();
-      ctx.arc(food.x * CELL_SIZE + CELL_SIZE / 2, food.y * CELL_SIZE + CELL_SIZE / 2, CELL_SIZE / 2 - 2, 0, Math.PI * 2);
-      ctx.fill();
-
-      snake.forEach((seg, i) => {
-        const px = seg.x * CELL_SIZE;
-        const py = seg.y * CELL_SIZE;
-        ctx.fillStyle = i === 0 ? "#1B7F45" : "#26A65B";
-        ctx.fillRect(px + 2, py + 2, CELL_SIZE - 4, CELL_SIZE - 4);
-      });
-
-      drawTextWithOutline("Score: " + score, 10, 25, "#e63946");
-
-      if (started) {
-        let elapsed;
-        if (paused) {
-          elapsed = Math.floor((pausedTime - startTime) / 1000);
-        } else {
-          elapsed = Math.floor((Date.now() - startTime) / 1000);
-        }
-        const minutes = String(Math.floor(elapsed / 60)).padStart(2, "0");
-        const seconds = String(elapsed % 60).padStart(2, "0");
-        drawTextWithOutline("Time: " + minutes + ":" + seconds, 10, 50, "#ffb703");
-      } else {
-        drawTextWithOutline("Click 'Start' to play", 10, 50, "#ffb703");
-      }
-
-      if (gameOver) {
-        ctx.fillStyle = "rgba(0,0,0,0.6)";
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-        ctx.fillStyle = "#e63946";
-        ctx.font = "40px Arial";
-        ctx.textAlign = "center";
-        ctx.fillText("GAME OVER", canvas.width / 2, canvas.height / 2 - 40);
-        ctx.font = "20px Arial";
-        ctx.fillStyle = "#fff";
-        ctx.fillText("Final Score: " + score, canvas.width / 2, canvas.height / 2);
-        ctx.fillText("Click 'Start' to continue", canvas.width / 2, canvas.height / 2 + 40);
-      }
-    }
-
-    function loop() {
-      update();
-      draw();
-    }
-
-    document.addEventListener("keydown", e => {
-      if (e.key === "ArrowUp" && dy === 0) {dx = 0; dy = -1;}
-      else if (e.key === "ArrowDown" && dy === 0) {dx = 0; dy = 1;}
-      else if (e.key === "ArrowLeft" && dx === 0) {dx = -1; dy = 0;}
-      else if (e.key === "ArrowRight" && dx === 0) {dx = 1; dy = 0;}
-    });
-
-    controlBtn.addEventListener("click", () => {
-  if (gameOver) {
-    init();
-    return;
-  }
-  if (!started) {
-    started = true;
-    paused = false;
-    startTime = Date.now();
-    controlBtn.textContent = "Pause";
-  } else if (paused) {
-    paused = false;
-    startTime += Date.now() - pausedTime;
-    controlBtn.textContent = "Pause";
-  } else {
-    paused = true;
-    pausedTime = Date.now();
-    controlBtn.textContent = "Start";
-  }
-});
-
-    init();
-    setInterval(loop, 100);
+    document.addEventListener('keydown',e=>{if(e.key==='ArrowUp'&&dy===0){dx=0;dy=-1}else if(e.key==='ArrowDown'&&dy===0){dx=0;dy=1}else if(e.key==='ArrowLeft'&&dx===0){dx=-1;dy=0}else if(e.key==='ArrowRight'&&dx===0){dx=1;dy=0}else if(e.key.toLowerCase()===' '){controlBtn.click()}});
+    controlBtn.addEventListener('click',()=>{if(gameOver){initGame();return}if(!started){if(!nameInput.value.trim()){nameInput.focus()}started=true;paused=false;startTime=Date.now();controlBtn.textContent='Pause'}else if(paused){paused=false;startTime+=Date.now()-pausedTime;controlBtn.textContent='Pause'}else{paused=true;pausedTime=Date.now();controlBtn.textContent='Start'}});
+    restartBtn.addEventListener('click',()=>{initGame()});
+    window.addEventListener('resize',()=>{const wasRunning=started&&!paused&&!gameOver;initGame();if(wasRunning){started=true;paused=false;startTime=Date.now();controlBtn.textContent='Pause'}});
+    renderBoard();initGame();setInterval(loop,100);
   </script>
 </body>
 </html>
